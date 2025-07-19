@@ -8,7 +8,22 @@ OMB_PROMPT_CONDAENV_FORMAT=' [%s]'
 OMB_THEME_EDSONARIOS_STATUS_BAD="${_omb_prompt_bold_brown}❯_${_omb_prompt_normal} "
 OMB_THEME_EDSONARIOS_STATUS_OK="${_omb_prompt_bold_green}❯_${_omb_prompt_normal} "
 
-function *omb*theme_PROMPT_COMMAND {
+# Get Python virtual environment
+function get_python_venv {
+  local python_venv=""
+  
+  # Check for conda environment
+  if [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
+    python_venv=$(printf "$OMB_PROMPT_CONDAENV_FORMAT" "$CONDA_DEFAULT_ENV")
+  # Check for virtualenv
+  elif [[ -n "$VIRTUAL_ENV" ]]; then
+    python_venv=$(printf "$OMB_PROMPT_VIRTUALENV_FORMAT" "$(basename "$VIRTUAL_ENV")")
+  fi
+  
+  echo "$python_venv"
+}
+
+function edsonarios_theme_prompt_command {
   if (($? == 0)); then
     local ret_status=${OMB_THEME_EDSONARIOS_STATUS_OK-}
   else
@@ -23,22 +38,15 @@ function *omb*theme_PROMPT_COMMAND {
     local directory="$PWD/"
   fi
   
-  # Get Python virtual environment
-  local python_venv
-  *omb*prompt_get_python_venv
-  
-  # Get conda environment if not already captured
-  local conda_env
-  if [[ -n "$CONDA_DEFAULT_ENV" && "$CONDA_DEFAULT_ENV" != "base" ]]; then
-    if [[ -z "$python_venv" ]]; then
-      conda_env=$(printf "$OMB_PROMPT_CONDAENV_FORMAT" "$CONDA_DEFAULT_ENV")
-    fi
-  fi
-  
-  # Combine environments (prioritize specific conda env over python venv)
-  local env_info="${conda_env}${python_venv}"
+  # Get environment info
+  local env_info=$(get_python_venv)
   
   PS1="\n⚡ \t $_omb_prompt_bold_teal${directory}$_omb_prompt_bold_purple${env_info}$_omb_prompt_bold_green$(__git_ps1 " (%s)") \n${ret_status}"
 }
 
-*omb*util_add_prompt_command *omb*theme_PROMPT_COMMAND
+# Use oh-my-bash function if available, otherwise use direct assignment
+if declare -f "*omb*util_add_prompt_command" >/dev/null 2>&1; then
+  *omb*util_add_prompt_command edsonarios_theme_prompt_command
+else
+  PROMPT_COMMAND="edsonarios_theme_prompt_command"
+fi
